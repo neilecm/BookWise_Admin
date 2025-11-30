@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS affiliate_products (
   priority INTEGER DEFAULT 50,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
+  created_by UUID
 );
 
 CREATE INDEX idx_affiliate_products_platform ON affiliate_products(platform);

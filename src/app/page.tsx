@@ -3,23 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-interface DashboardStats {
-  totalUsers: number;
-  totalBookings: number;
-  totalRevenue: number;
-  affiliateClicks: number;
-  activeProducts: number;
-  activeLanguages: number;
-}
-
-export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    totalBookings: 0,
-    totalRevenue: 0,
-    affiliateClicks: 0,
-    activeProducts: 0,
-    activeLanguages: 5,
+export default function Dashboard() {
+  const [stats, setStats] = useState({
+    users: 0,
+    bookings: 0,
+    revenue: 0,
+    products: 0,
+    languages: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -29,81 +19,74 @@ export default function DashboardPage() {
 
   const fetchStats = async () => {
     try {
-      // In production, fetch from API
-      // For now, using mock data
-      setStats({
-        totalUsers: 1247,
-        totalBookings: 856,
-        totalRevenue: 45230,
-        affiliateClicks: 3421,
-        activeProducts: 0,
-        activeLanguages: 5,
-      });
+      const res = await fetch("/api/admin/dashboard/stats");
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+      }
     } catch (error) {
-      console.error("Error fetching stats:", error);
+      console.error("Failed to fetch stats", error);
     } finally {
       setLoading(false);
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
   const statCards = [
     {
       name: "Total Users",
-      value: stats.totalUsers.toLocaleString(),
+      value: stats.users,
       icon: "👥",
-      change: "+12%",
-      changeType: "positive",
+      change: "Real-time",
+      changeType: "neutral",
     },
     {
       name: "Total Bookings",
-      value: stats.totalBookings.toLocaleString(),
+      value: stats.bookings,
       icon: "📅",
-      change: "+8%",
-      changeType: "positive",
+      change: "Real-time",
+      changeType: "neutral",
     },
     {
-      name: "Revenue",
-      value: `$${stats.totalRevenue.toLocaleString()}`,
+      name: "Total Revenue",
+      value: formatCurrency(stats.revenue),
       icon: "💰",
-      change: "+15%",
-      changeType: "positive",
-    },
-    {
-      name: "Affiliate Clicks",
-      value: stats.affiliateClicks.toLocaleString(),
-      icon: "🔗",
-      change: "+23%",
+      change: "Real-time",
       changeType: "positive",
     },
     {
       name: "Active Products",
-      value: stats.activeProducts.toLocaleString(),
+      value: stats.products,
       icon: "📦",
-      change: "0",
+      change: "Affiliate",
       changeType: "neutral",
     },
     {
       name: "Languages",
-      value: stats.activeLanguages.toLocaleString(),
+      value: stats.languages,
       icon: "🌐",
-      change: "0",
+      change: "Supported",
       changeType: "neutral",
     },
   ];
 
   return (
     <div className="px-4 py-6 sm:px-0">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Platform overview and key metrics
-        </p>
-      </div>
-
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
         {statCards.map((stat) => (
-          <div key={stat.name} className="bg-white overflow-hidden shadow rounded-lg">
+          <div
+            key={stat.name}
+            className="bg-white overflow-hidden shadow rounded-lg"
+          >
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -118,15 +101,7 @@ export default function DashboardPage() {
                       <div className="text-2xl font-semibold text-gray-900">
                         {loading ? "..." : stat.value}
                       </div>
-                      <div
-                        className={`ml-2 flex items-baseline text-sm font-semibold ${
-                          stat.changeType === "positive"
-                            ? "text-green-600"
-                            : stat.changeType === "negative"
-                            ? "text-red-600"
-                            : "text-gray-500"
-                        }`}
-                      >
+                      <div className="ml-2 flex items-baseline text-sm font-semibold text-gray-500">
                         {stat.change}
                       </div>
                     </dd>
@@ -161,42 +136,24 @@ export default function DashboardPage() {
             🌐 Manage Translations
           </Link>
           <Link
-            href="/products"
+            href="/businesses"
             className="flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
           >
-            📦 View Products
+            🏢 View Businesses
           </Link>
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity (Placeholder for now, can be updated later) */}
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between py-3 border-b border-gray-200">
             <div className="flex items-center">
-              <span className="text-2xl mr-3">📦</span>
+              <span className="text-2xl mr-3">🚀</span>
               <div>
-                <p className="text-sm font-medium text-gray-900">Product added</p>
-                <p className="text-xs text-gray-500">2 hours ago</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between py-3 border-b border-gray-200">
-            <div className="flex items-center">
-              <span className="text-2xl mr-3">🌐</span>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Translation updated</p>
-                <p className="text-xs text-gray-500">5 hours ago</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center">
-              <span className="text-2xl mr-3">🔗</span>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Affiliate link generated</p>
-                <p className="text-xs text-gray-500">1 day ago</p>
+                <p className="text-sm font-medium text-gray-900">System Online</p>
+                <p className="text-xs text-gray-500">Real-time data connection active</p>
               </div>
             </div>
           </div>

@@ -1,82 +1,164 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function NewProductPage() {
+function NewProductForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [loading, setLoading] = useState(false);
+  const [importAsin, setImportAsin] = useState("");
+  const [importing, setImporting] = useState(false);
+
   const [formData, setFormData] = useState({
     title: "",
-    subtitle: "",
     description: "",
-    image_url: "",
-    display_price: "",
     platform: "amazon",
-    affiliate_url: "",
+    url: "",
+    image_url: "",
     external_id: "",
-    countries: [] as string[],
-    service_tags: [] as string[],
+    service_tags: "",
+    countries: "",
+    priority: 0,
     active: true,
-    priority: 50,
   });
+
+  useEffect(() => {
+    // Pre-fill from URL params (e.g. from Link Generator)
+    const url = searchParams.get("url");
+    const platform = searchParams.get("platform");
+    const external_id = searchParams.get("external_id");
+    const title = searchParams.get("title");
+    const image = searchParams.get("image");
+    // const price = searchParams.get("price"); // Could add to description
+
+    if (url || platform) {
+      setFormData(prev => ({
+        ...prev,
+        url: url || prev.url,
+        platform: platform || prev.platform,
+        external_id: external_id || prev.external_id,
+        title: title || prev.title,
+        image_url: image || prev.image_url,
+      }));
+    }
+  }, [searchParams]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleArrayChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleImport = async () => {
+    if (!importAsin) return;
+    setImporting(true);
+    try {
+      const res = await fetch("/api/admin/amazon/product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asin: importAsin }),
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        const product = data.data;
+        setFormData(prev => ({
+          ...prev,
+          title: product.title || prev.title,
+          image_url: product.image || prev.image_url,
+          url: product.url || prev.url,
+          external_id: importAsin,
+          platform: "amazon",
+          description: product.price ? `Price: ${product.price}` : prev.description
+        }));
+      } else {
+        alert("Import failed: " + data.error);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error importing from Amazon");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const payload = { affiliate_url: formData.url,
+        ...formData,
+        service_tags: formData.service_tags.split(",").map((t) => t.trim()).filter(Boolean),
+        countries: formData.countries.split(",").map((c) => c.trim()).filter(Boolean),
+      };
+
       const res = await fetch("/api/admin/products", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
-      if (data.success) {
+      if (res.ok) {
         router.push("/products");
       } else {
-        alert("Error: " + data.error);
+        const error = await res.json();
+        alert(`Error: ${error.message}`);
       }
     } catch (error) {
+      console.error("Error creating product:", error);
       alert("Failed to create product");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-    }));
-  };
-
-  const handleArrayChange = (field: "countries" | "service_tags", value: string) => {
-    const values = value.split(",").map(v => v.trim()).filter(Boolean);
-    setFormData(prev => ({ ...prev, [field]: values }));
-  };
-
   return (
     <div className="px-4 py-6 sm:px-0">
-      <div className="mb-6">
-        <Link href="/products" className="text-indigo-600 hover:text-indigo-900">
-          ← Back to Products
-        </Link>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Add New Product</h1>
+
+      {/* Import Section */}
+      <div className="bg-white shadow sm:rounded-lg p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Import from Amazon</h2>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            value={importAsin}
+            onChange={(e) => setImportAsin(e.target.value)}
+            placeholder="Enter ASIN (e.g. B08...)"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={importing || !importAsin}
+            className="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50"
+          >
+            {importing ? "Importing..." : "Import Data"}
+          </button>
+        </div>
       </div>
 
       <div className="bg-white shadow sm:rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Add New Product</h2>
-
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="sm:col-span-2">
+            <div className="grid grid-cols-1 gap-6">
+              <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Title *
+                  Title
                 </label>
                 <input
                   type="text"
@@ -90,52 +172,35 @@ export default function NewProductPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Platform *
+                  Platform
                 </label>
                 <select
                   name="platform"
-                  required
                   value={formData.platform}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="amazon">Amazon</option>
                   <option value="shopee">Shopee</option>
-                  <option value="impact">Impact.com</option>
                   <option value="other">Other</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Display Price
-                </label>
-                <input
-                  type="text"
-                  name="display_price"
-                  value={formData.display_price}
-                  onChange={handleChange}
-                  placeholder="$29.99"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Affiliate URL *
+                  Product URL
                 </label>
                 <input
                   type="url"
-                  name="affiliate_url"
+                  name="url"
                   required
-                  value={formData.affiliate_url}
+                  value={formData.url}
                   onChange={handleChange}
-                  placeholder="https://..."
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Description
                 </label>
@@ -247,5 +312,13 @@ export default function NewProductPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewProductPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewProductForm />
+    </Suspense>
   );
 }

@@ -56,7 +56,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
     }
     
-    await sql`UPDATE affiliate_products SET active = false, updated_at = NOW() WHERE id = ${params.id}`;
+    await sql`DELETE FROM affiliate_products WHERE id = ${params.id}`;
     return NextResponse.json({ success: true, message: "Product deleted successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
