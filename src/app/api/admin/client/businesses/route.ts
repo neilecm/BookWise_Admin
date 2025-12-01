@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -14,29 +16,29 @@ export async function GET(req: NextRequest) {
 
     // Base query parts
     // We use COALESCE to handle cases with no payments/bookings
-    // We join businesses -> users (owner)
+    // We join businesses -> auth.users (owner)
     // We join businesses -> bookings -> payments to calculate revenue
-    
+
     if (search) {
       businesses = await sql`
         SELECT 
           b.id, 
           b.name, 
           b.created_at,
-          u.name as owner_name, 
+          u.raw_user_meta_data->>'name' as owner_name, 
           u.email as owner_email,
           COALESCE(SUM(p.amount_net), 0) as total_revenue,
           COUNT(DISTINCT bk.id) as total_bookings
         FROM businesses b
-        LEFT JOIN users u ON b.owner_id = u.id
+        LEFT JOIN auth.users u ON b.owner_id = u.id
         LEFT JOIN bookings bk ON b.id = bk.business_id
         LEFT JOIN payments p ON bk.id = p.booking_id AND p.status = 'captured'
         WHERE b.name ILIKE ${'%' + search + '%'}
-        GROUP BY b.id, u.id
+        GROUP BY b.id, u.id, u.email, u.raw_user_meta_data
         ORDER BY total_revenue DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
-      
+
       countResult = await sql`
         SELECT COUNT(*) as count 
         FROM businesses 
@@ -48,19 +50,19 @@ export async function GET(req: NextRequest) {
           b.id, 
           b.name, 
           b.created_at,
-          u.name as owner_name, 
+          u.raw_user_meta_data->>'name' as owner_name, 
           u.email as owner_email,
           COALESCE(SUM(p.amount_net), 0) as total_revenue,
           COUNT(DISTINCT bk.id) as total_bookings
         FROM businesses b
-        LEFT JOIN users u ON b.owner_id = u.id
+        LEFT JOIN auth.users u ON b.owner_id = u.id
         LEFT JOIN bookings bk ON b.id = bk.business_id
         LEFT JOIN payments p ON bk.id = p.booking_id AND p.status = 'captured'
-        GROUP BY b.id, u.id
+        GROUP BY b.id, u.id, u.email, u.raw_user_meta_data
         ORDER BY total_revenue DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
-      
+
       countResult = await sql`
         SELECT COUNT(*) as count FROM businesses
       `;
