@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -14,26 +16,42 @@ export async function GET(req: NextRequest) {
 
     if (search) {
       users = await sql`
-        SELECT id, name, email, avatar, created_at, active_business_id
-        FROM users
-        WHERE name ILIKE ${'%' + search + '%'} OR email ILIKE ${'%' + search + '%'}
+        SELECT 
+          id, 
+          email, 
+          raw_user_meta_data->>'name' as name, 
+          raw_user_meta_data->>'avatar_url' as avatar, 
+          created_at, 
+          active_business_id
+        FROM auth.users
+        WHERE 
+          email ILIKE ${'%' + search + '%'} OR 
+          (raw_user_meta_data->>'name') ILIKE ${'%' + search + '%'}
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
       countResult = await sql`
         SELECT COUNT(*) as count
-        FROM users
-        WHERE name ILIKE ${'%' + search + '%'} OR email ILIKE ${'%' + search + '%'}
+        FROM auth.users
+        WHERE 
+          email ILIKE ${'%' + search + '%'} OR 
+          (raw_user_meta_data->>'name') ILIKE ${'%' + search + '%'}
       `;
     } else {
       users = await sql`
-        SELECT id, name, email, avatar, created_at, active_business_id
-        FROM users
+        SELECT 
+          id, 
+          email, 
+          raw_user_meta_data->>'name' as name, 
+          raw_user_meta_data->>'avatar_url' as avatar, 
+          created_at, 
+          active_business_id
+        FROM auth.users
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
       countResult = await sql`
-        SELECT COUNT(*) as count FROM users
+        SELECT COUNT(*) as count FROM auth.users
       `;
     }
 
