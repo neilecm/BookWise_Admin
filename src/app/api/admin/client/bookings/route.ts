@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -13,6 +15,9 @@ export async function GET(req: NextRequest) {
     let countResult;
 
     // Base query parts
+    // Join customers to get customer details
+    // Join services to get service name (if not in booking)
+    // Join businesses to get business name
     const select = sql`
       SELECT 
         b.id, 
@@ -22,12 +27,12 @@ export async function GET(req: NextRequest) {
         b.status, 
         b.payment_status,
         b.created_at,
-        u.name as customer_name,
-        u.email as customer_email,
-        s.name as service_name,
+        COALESCE(b.customer_name, c.first_name || ' ' || c.last_name) as customer_name,
+        c.email as customer_email,
+        COALESCE(b.service_name, s.name) as service_name,
         bz.name as business_name
       FROM bookings b
-      LEFT JOIN users u ON b.customer_id = u.id
+      LEFT JOIN customers c ON b.customer_id = c.id
       LEFT JOIN services s ON b.service_id = s.id
       LEFT JOIN businesses bz ON b.business_id = bz.id
     `;
